@@ -33,7 +33,7 @@ trait Validatable
         return 'model_validation.';
     }
 
-    public function validationErrors() : ValidationErrors
+    public function validationErrors()
     {
         if ($this->_validationErrors === null) {
             $this->_validationErrors = new ValidationErrors(

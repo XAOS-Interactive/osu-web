@@ -40,8 +40,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * The contents of the cart should not be cleared until the payment request is
  *  successfully sent to the payment provider.
  * i.e. it should not be cleared immediately on checking out.
- *
- * @property User $user
  */
 class Order extends Model
 {

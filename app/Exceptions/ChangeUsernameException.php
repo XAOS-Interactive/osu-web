@@ -20,26 +20,20 @@
 
 namespace App\Exceptions;
 
-use App\Libraries\ValidationErrors;
 use Exception;
 
 class ChangeUsernameException extends Exception
 {
-    private $errors;
+    private $errors = [];
 
-    public function __construct($errors, Exception $previous = null)
+    public function __construct(array $errors = [], Exception $previous = null)
     {
-        if ($errors instanceof ValidationErrors) {
-            $message = $errors->toSentence();
-            $this->errors = $errors;
-        } else {
-            $message = $errors;
-        }
-
+        $message = implode("\n", $errors);
         parent::__construct($message, 0, $previous);
+        $this->errors = $errors;
     }
 
-    public function getErrors() : ValidationErrors
+    public function getErrors()
     {
         return $this->errors;
     }

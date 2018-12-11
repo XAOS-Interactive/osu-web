@@ -57,7 +57,7 @@ abstract class OrderFulfiller implements Fulfillable
         return $this->order;
     }
 
-    protected function throwOnFail(bool $valid = false)
+    protected function throwOnFail($valid)
     {
         if (!$valid) {
             $this->throwValidationFailed(new FulfillmentException($this->validationErrors()));
