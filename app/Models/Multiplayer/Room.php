@@ -130,7 +130,9 @@ class Room extends Model
 
     public function startGame(User $owner, array $params)
     {
-        if (static::active()->startedBy($owner)->exists()) {
+        $userRoomCount = static::active()->startedBy($owner)->count();
+
+        if ($userRoomCount >= $owner->maxMultiplayerRooms()) {
             throw new InvariantException('number of simultaneously active rooms reached');
         }
 
@@ -243,8 +245,8 @@ class Room extends Model
             }
         }
 
-        if ($this->starts_at->gte($this->ends_at)) {
-            throw new InvariantException("'ends_at' cannot be before 'starts_at'");
+        if ($this->starts_at->addMinutes(30)->gte($this->ends_at)) {
+            throw new InvariantException("'ends_at' must be at least 30 minutes after 'starts_at'");
         }
 
         if ($this->max_attempts !== null) {
