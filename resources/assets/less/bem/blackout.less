@@ -16,10 +16,16 @@
  *    along with osu!web.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+ .blackout[data-visibility][data-visibility="hidden"] {
+   // required to fix broken display on changelog page
+   z-index:511;
+}
+
 .blackout {
   .full-size();
   position: fixed;
   z-index: @z-index--blackout;
+
   backface-visibility: hidden;
   background-color: #000;
   opacity: 0.75;
