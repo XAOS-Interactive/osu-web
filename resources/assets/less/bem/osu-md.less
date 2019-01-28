@@ -26,6 +26,12 @@
   font-size: @font-size--wiki;
   word-wrap: break-word;
 
+  hr {
+    .@{top}--news& {
+      border-color: fade(@pink-lighter, 50%);
+    }
+  }
+
   iframe {
     max-width: 100%;
   }
@@ -40,7 +46,7 @@
 
   &--news {
     padding: 20px 25px 0;
-    color: @dark-purple-lighter;
+    color: @pink-lighter;
     font-size: @font-size--title-small-3;
   }
 
