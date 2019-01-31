@@ -1,7 +1,7 @@
 <?php
 
 /**
- *    Copyright 2015-2017 ppy Pty. Ltd.
+ *    Copyright (c) ppy Pty Ltd <contact@ppy.sh>.
  *
  *    This file is part of osu!web. osu!web is distributed with the hope of
  *    attracting more community contributions to the core ecosystem of osu!.
@@ -217,10 +217,16 @@ class Event extends Model
     public function stringMode($mode)
     {
         switch ($mode) {
-            case 'osu!mania': return 'mania';
-            case 'Taiko': return 'taiko';
-            case 'osu!': return 'osu';
-            case 'Catch the Beat': return 'fruits';
+            case 'osu!mania':
+                return 'mania';
+            case 'Taiko':
+            case 'osu!taiko':
+                return 'taiko';
+            case 'osu!':
+                return 'osu';
+            case 'Catch the Beat':
+            case 'osu!catch':
+                return 'fruits';
         }
     }
 
