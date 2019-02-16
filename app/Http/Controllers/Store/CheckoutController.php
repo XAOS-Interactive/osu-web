@@ -22,6 +22,7 @@ namespace App\Http\Controllers\Store;
 
 use App\Events\Fulfillments\PaymentEvent;
 use App\Libraries\OrderCheckout;
+use App\Models\Store\Order;
 use App\Traits\CheckoutErrorSettable;
 use App\Traits\StoreNotifiable;
 use Auth;
@@ -48,7 +49,7 @@ class CheckoutController extends Controller
     public function show($id)
     {
         $order = $this->orderForCheckout($id);
-        if ($order === null || $order->isEmpty()) {
+        if ($order === null || $order->isEmpty() || $order->isShouldShopify()) {
             return ujs_redirect(route('store.cart.show'));
         }
 
@@ -68,6 +69,7 @@ class CheckoutController extends Controller
     {
         $orderId = get_int(request('orderId'));
         $provider = request('provider');
+        $shopifyId = presence(request('shopifyId'));
 
         $order = $this->orderForCheckout($orderId);
 
@@ -75,7 +77,7 @@ class CheckoutController extends Controller
             return ujs_redirect(route('store.cart.show'));
         }
 
-        $checkout = new OrderCheckout($order, $provider);
+        $checkout = new OrderCheckout($order, $provider, $shopifyId);
 
         $validationErrors = $checkout->validate();
         if (!empty($validationErrors)) {

@@ -67,6 +67,8 @@ class Order extends Model
     const ORDER_NUMBER_REGEX = '/^(?<prefix>[A-Za-z]+)-(?<userId>\d+)-(?<orderId>\d+)$/';
     const PENDING_ECHECK = 'PENDING ECHECK';
 
+    const PROVIDER_SHOPIFY = 'shopify';
+
     const STATUS_HAS_INVOICE = ['processing', 'checkout', 'paid', 'shipped', 'cancelled', 'delivered'];
 
     protected $primaryKey = 'order_id';
@@ -219,6 +221,15 @@ class Order extends Model
         return (float) $total;
     }
 
+    public function getTransactionId() : ?string
+    {
+        if (!present($this->transaction_id)) {
+            return null;
+        }
+
+        return explode('-', $this->transaction_id)[1] ?? null;
+    }
+
     public function requiresShipping()
     {
         foreach ($this->items as $i) {
@@ -324,6 +335,31 @@ class Order extends Model
     public function isPendingEcheck()
     {
         return $this->tracking_code === static::PENDING_ECHECK;
+    }
+
+    public function getShopifyCheckoutId() : ?string
+    {
+        if (!$this->isShopify()) {
+            return null;
+        }
+
+        return $this->getTransactionId();
+    }
+
+    public function isShopify() : bool
+    {
+        return starts_with($this->transaction_id, static::PROVIDER_SHOPIFY);
+    }
+
+    public function isShouldShopify() : bool
+    {
+        foreach ($this->items as $item) {
+            if ($item->product->shopify_id !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

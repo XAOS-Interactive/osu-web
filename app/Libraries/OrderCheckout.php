@@ -20,6 +20,7 @@
 
 namespace App\Libraries;
 
+use App\Exceptions\InvariantException;
 use App\Libraries\Payments\InvalidOrderStateException;
 use App\Models\Store\Order;
 use App\Models\User;
@@ -38,10 +39,18 @@ class OrderCheckout
      */
     private $provider;
 
-    public function __construct(Order $order, string $provider = null)
+    /** @var string|null */
+    private $shopifyId;
+
+    public function __construct(Order $order, ?string $provider = null, ?string $shopifyId = null)
     {
+        if ($provider === Order::PROVIDER_SHOPIFY && $shopifyId === null) {
+            throw new InvariantException('shopify provider requires a checkout id.');
+        }
+
         $this->order = $order;
         $this->provider = $provider;
+        $this->shopifyId = $shopifyId;
     }
 
     /**
@@ -112,7 +121,7 @@ class OrderCheckout
             }
 
             $order->status = 'processing';
-            $order->transaction_id = $this->provider;
+            $order->transaction_id = $this->generateTransactionIdForNewCheckout();
             $order->reserveItems();
 
             $order->saveorExplode();
@@ -166,6 +175,7 @@ class OrderCheckout
      */
     public function validate()
     {
+        $shouldShopify = $this->order->isShouldShopify();
         // TODO: nested indexed ValidationError...somehow.
         $itemErrors = [];
         $items = $this->order->items()->with('product')->get();
@@ -180,13 +190,16 @@ class OrderCheckout
                 $messages[] = trans('model_validation/store/product.not_available');
             }
 
-            // TODO: probably can combine max_quantity and inStock check and message.
             if (!$item->product->inStock($item->quantity)) {
                 $messages[] = trans('model_validation/store/product.insufficient_stock');
             }
 
             if ($item->quantity > $item->product->max_quantity) {
                 $messages[] = trans('model_validation/store/product.too_many', ['count' => $item->product->max_quantity]);
+            }
+
+            if ($shouldShopify && !$item->product->isShopify()) {
+                $messages[] = trans('model_validation/store/product.must_separate');
             }
 
             $customClass = $item->getCustomClassInstance();
@@ -230,5 +243,10 @@ class OrderCheckout
     private function allowXsollaPayment()
     {
         return !$this->order->requiresShipping();
+    }
+
+    private function generateTransactionIdForNewCheckout()
+    {
+        return $this->provider === Order::PROVIDER_SHOPIFY ? "{$this->provider}-{$this->shopifyId}" : $this->provider;
     }
 }
