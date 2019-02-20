@@ -23,20 +23,13 @@ const webpack = require('webpack');
 const SentryPlugin = require('webpack-sentry-plugin');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 
-// might have already been called when mix starts? Won't override anything.
-require('dotenv').config();
-
-console.log(`cwd is "${process.cwd()}"`);
-// same lookup as dotenv.
-console.log(`load .env from "${path.resolve(process.cwd(), '.env')}"`);
-
 requiredEnvs = ['PAYMENT_SANDBOX', 'SHOPIFY_DOMAIN', 'SHOPIFY_STOREFRONT_TOKEN'];
 for (const key of requiredEnvs) {
   const value = process.env[key];
   if (value == null) {
-    console.error(`${key} is missing from env!`);
+    throw new Error(`${key} is missing from env!`);
   } else if (value.length === 0) {
-    console.error(`${key} exists in env but is empty!`);
+    throw new Error(`${key} exists in env but is empty!`);
   }
 }
 
@@ -161,7 +154,7 @@ if (!mix.inProduction() || process.env.SENTRY_RELEASE == 1) {
 }
 
 if (process.env.SENTRY_RELEASE == 1) {
-  webpackConfig['plugins'] = [
+  webpackConfig['plugins'].push(
     new SentryPlugin({
       organisation: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJ,
@@ -176,7 +169,7 @@ if (process.env.SENTRY_RELEASE == 1) {
         return '~' + filename
       }
     })
-  ]
+  );
 }
 
 // use polling if watcher is bugged.
