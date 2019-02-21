@@ -17,7 +17,7 @@
  */
 
 import Shopify from 'shopify-buy';
-import { toShopifyVariantId } from 'shopify-gid';
+import { toShopifyVariantGid } from 'shopify-gid';
 
 declare global {
   interface Window {
@@ -39,14 +39,8 @@ interface LineItem {
 }
 
 export class Store {
-  private static instance: Store;
-
-  static init() {
-    if (this.instance == null) {
-      this.instance = new Store();
-    }
-
-    return this.instance;
+  static init(sharedContext: Window) {
+    sharedContext.Store = sharedContext.Store || new Store();
   }
 
   private constructor() {
@@ -63,71 +57,69 @@ export class Store {
   async beginCheckout(event: Event) {
     if (event.target == null) { return; }
 
-    const orderId = osu.presence((event.target as HTMLElement).dataset.orderId);
+    const dataset = (event.target as HTMLElement).dataset;
+    const orderId = dataset.orderId;
+    const shouldShopify = dataset.shopify === '1';
     if (orderId == null) {
       throw new Error('orderId is missing');
     }
 
-    const { isValid, lineItems } = this.collectShopifyItems();
-
-    if (!isValid) {
-      // can't mix Shopify and non-Shopify items.
-      // This should normally not show as the button itself shouldn't have been rendered.
-      osu.popup(osu.trans('model_validation/store/product.must_separate'), 'danger');
+    if (shouldShopify) {
+      try {
+        await this.beginShopifyCheckout(orderId);
+      } catch (error) {
+        LoadingOverlay.hide();
+        userVerification.showOnError({ target: event.target }, error);
+      }
 
       return;
-    }
-
-    if (lineItems.length > 0) {
-      return this.beginShopifyCheckout(orderId, lineItems, event.target);
     }
 
     Turbolinks.visit(laroute.route('store.checkout.show', { checkout: orderId }));
   }
 
-  async beginShopifyCheckout(orderId: string, lineItems: LineItem[], target: EventTarget) {
-    try {
-      LoadingOverlay.show();
-      LoadingOverlay.show.flush();
+  async beginShopifyCheckout(orderId: string) {
+    LoadingOverlay.show();
+    LoadingOverlay.show.flush();
 
+    let checkout: any;
+    try {
       // create shopify checkout.
       // error returned will be a JSON string in error.message
-      const checkout = await client.checkout.create({
+      checkout = await client.checkout.create({
         customAttributes: [{ key: 'orderId', value: orderId }],
-        lineItems,
+        lineItems: this.collectShopifyItems(),
       });
-
-      const params = {
-        orderId,
-        provider: 'shopify',
-        shopifyId: checkout.id,
-      };
-
-      // FIXME: ugly
-      try {
-        await osu.promisify($.post(laroute.route('store.checkout.store'), params));
-        window.location = checkout.webUrl;
-      } catch (error) {
-        LoadingOverlay.hide();
-        userVerification.showOnError({ target }, error);
-      }
     } catch (error) {
-      // either error from Shopify or updating the order state failed.
-      // TODO: separate the handling of errors.
-      osu.popup(osu.trans('errors.checkout.generic'), 'danger');
       LoadingOverlay.hide();
+      osu.popup(osu.trans('errors.checkout.generic'), 'danger');
+      return;
     }
+
+    const params = {
+      orderId,
+      provider: 'shopify',
+      shopifyCheckoutId: checkout.id,
+    };
+
+    await osu.promisify($.post(laroute.route('store.checkout.store'), params));
+    window.location.href = checkout.webUrl;
   }
 
   async resumeCheckout(event: Event) {
     if (event.target == null) { return; }
 
     const target = event.target as HTMLElement;
-    const checkoutId = osu.presence(target.dataset.checkoutId);
-    if (checkoutId == null) {
-      Turbolinks.visit(laroute.route('store.invoice.show', { invoice: target.dataset.orderId }));
+    const { provider, providerReference } = target.dataset;
+
+    if (provider === 'shopify') {
+      if (providerReference != null) {
+        this.resumeShopifyCheckout(providerReference);
+      } else {
+        // TODO: show error.
+      }
     } else {
-      this.resumeShopifyCheckout(checkoutId);
+      Turbolinks.visit(laroute.route('store.invoice.show', { invoice: target.dataset.orderId }));
     }
   }
 
@@ -137,36 +129,15 @@ export class Store {
 
     const checkout = await client.checkout.fetch(checkoutId);
 
-    window.location = checkout.webUrl;
+    window.location.href = checkout.webUrl;
   }
 
   private collectShopifyItems() {
-    let isValid = true;
-
-    const lineItems: LineItem[] = [];
-    $('.js-store-order-item').each((_, element) => {
-      const id = osu.presence(element.dataset.shopifyId);
-      if (id == null) {
-        isValid = false;
-      }
-
-      if (id != null) {
-        lineItems.push({
-          quantity: Number(element.dataset.quantity),
-          variantId: toShopifyVariantId(id),
-        });
-      }
-    });
-
-    if (lineItems.length === 0) {
-      isValid = true;
-    }
-
-    return {
-      isValid,
-      lineItems,
-    };
+    return $('.js-store-order-item').map((_, element) => {
+      return {
+        quantity: Number(element.dataset.quantity),
+        variantId: toShopifyVariantGid(element.dataset.shopifyId),
+      };
+    }).get();
   }
 }
-
-window.Store = window.Store || Store.init();

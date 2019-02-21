@@ -67,7 +67,11 @@ class Order extends Model
     const ORDER_NUMBER_REGEX = '/^(?<prefix>[A-Za-z]+)-(?<userId>\d+)-(?<orderId>\d+)$/';
     const PENDING_ECHECK = 'PENDING ECHECK';
 
+    const PROVIDER_CENTILLI = 'centili';
+    const PROVIDER_FREE = 'free';
+    const PROVIDER_PAYPAL = 'paypal';
     const PROVIDER_SHOPIFY = 'shopify';
+    const PROVIDER_XSOLLA = 'xsolla';
 
     const STATUS_HAS_INVOICE = ['processing', 'checkout', 'paid', 'shipped', 'cancelled', 'delivered'];
 
@@ -207,6 +211,20 @@ class Order extends Model
         }
     }
 
+    /**
+     * Returns the reference id for the provider associated with this Order.
+     *
+     * @return string|null
+     */
+    public function getProviderReference() : ?string
+    {
+        if (!present($this->transaction_id)) {
+            return null;
+        }
+
+        return explode('-', $this->transaction_id)[1] ?? null;
+    }
+
     public function getSubtotal($forShipping = false)
     {
         $total = 0;
@@ -219,15 +237,6 @@ class Order extends Model
         }
 
         return (float) $total;
-    }
-
-    public function getTransactionId() : ?string
-    {
-        if (!present($this->transaction_id)) {
-            return null;
-        }
-
-        return explode('-', $this->transaction_id)[1] ?? null;
     }
 
     public function requiresShipping()
@@ -335,15 +344,6 @@ class Order extends Model
     public function isPendingEcheck()
     {
         return $this->tracking_code === static::PENDING_ECHECK;
-    }
-
-    public function getShopifyCheckoutId() : ?string
-    {
-        if (!$this->isShopify()) {
-            return null;
-        }
-
-        return $this->getTransactionId();
     }
 
     public function isShopify() : bool

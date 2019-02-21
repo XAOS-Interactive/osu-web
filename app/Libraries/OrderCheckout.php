@@ -40,17 +40,17 @@ class OrderCheckout
     private $provider;
 
     /** @var string|null */
-    private $shopifyId;
+    private $providerReference;
 
-    public function __construct(Order $order, ?string $provider = null, ?string $shopifyId = null)
+    public function __construct(Order $order, ?string $provider = null, ?string $providerReference = null)
     {
-        if ($provider === Order::PROVIDER_SHOPIFY && $shopifyId === null) {
-            throw new InvariantException('shopify provider requires a checkout id.');
+        if ($provider === Order::PROVIDER_SHOPIFY && $providerReference === null) {
+            throw new InvariantException('shopify provider requires a providerReference (checkout id).');
         }
 
         $this->order = $order;
         $this->provider = $provider;
-        $this->shopifyId = $shopifyId;
+        $this->providerReference = $providerReference;
     }
 
     /**
@@ -72,18 +72,26 @@ class OrderCheckout
     /**
      * @return string[]
      */
-    public function allowedCheckoutTypes()
+    public function allowedCheckoutProviders()
     {
-        $allowed = ['paypal'];
-        if ($this->allowCentiliPayment()) {
-            $allowed[] = 'centili';
+        if ($this->order->isShouldShopify()) {
+            return [Order::PROVIDER_SHOPIFY];
         }
 
-        if ($this->allowXsollaPayment()) {
-            $allowed[] = 'xsolla';
+        if ($this->order->getTotal() > 0) {
+            $allowed = [Order::PROVIDER_PAYPAL];
+            if ($this->allowCentiliPayment()) {
+                $allowed[] = Order::PROVIDER_CENTILLI;
+            }
+
+            if ($this->allowXsollaPayment()) {
+                $allowed[] = Order::PROVIDER_XSOLLA;
+            }
+
+            return $allowed;
         }
 
-        return $allowed;
+        return [Order::PROVIDER_FREE];
     }
 
     /**
@@ -112,6 +120,11 @@ class OrderCheckout
 
     public function beginCheckout()
     {
+        // something that shouldn't happen just happened.
+        if (!in_array($this->provider, $this->allowedCheckoutProviders(), true)) {
+            throw new InvariantException("{$this->provider} not in allowed checkout providers.");
+        }
+
         DB::connection('mysql-store')->transaction(function () {
             $order = $this->order->lockSelf();
             if (!$order->canCheckout()) {
@@ -121,7 +134,7 @@ class OrderCheckout
             }
 
             $order->status = 'processing';
-            $order->transaction_id = $this->generateTransactionIdForNewCheckout();
+            $order->transaction_id = $this->newOrderTransactionId();
             $order->reserveItems();
 
             $order->saveorExplode();
@@ -245,8 +258,8 @@ class OrderCheckout
         return !$this->order->requiresShipping();
     }
 
-    private function generateTransactionIdForNewCheckout()
+    private function newOrderTransactionId()
     {
-        return $this->provider === Order::PROVIDER_SHOPIFY ? "{$this->provider}-{$this->shopifyId}" : $this->provider;
+        return $this->provider === Order::PROVIDER_SHOPIFY ? "{$this->provider}-{$this->providerReference}" : $this->provider;
     }
 }

@@ -100,13 +100,9 @@
                         </p>
                     </div>
                 @else
-                    @if ($order->getTotal() > 0)
-                        @foreach ($checkout->allowedCheckoutTypes() as $type)
-                            @include("store._checkout_{$type}")
-                        @endforeach
-                    @else
-                        @include('store._checkout_free')
-                    @endif
+                    @foreach ($checkout->allowedCheckoutProviders() as $provider)
+                        @include("store.checkout._{$provider}")
+                    @endforeach
                 @endif
             </div>
         </div>
